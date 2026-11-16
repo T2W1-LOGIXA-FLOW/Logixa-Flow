@@ -25,9 +25,12 @@ describe("POST /api/contact", () => {
   beforeEach(() => {
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.com");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
+    delete process.env.NEXT_PUBLIC_API_URL;
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ result: [1, 3600] }), { status: 200 })),
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify({ result: [1, 3600] }), { status: 200 })),
+      ),
     );
     vi.mocked(sendConfirmationEmail).mockClear();
     vi.mocked(sendAdminNotification).mockClear();

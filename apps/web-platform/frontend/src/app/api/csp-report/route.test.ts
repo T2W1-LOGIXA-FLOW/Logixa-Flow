@@ -1,9 +1,25 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { POST } = await import("./route");
 
 describe("/api/csp-report", () => {
+  beforeEach(() => {
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.com");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify({ result: [1, 60] }), { status: 200 })),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
   it("accepts a valid CSP violation report", async () => {
     const request = new NextRequest("http://localhost/api/csp-report", {
       method: "POST",

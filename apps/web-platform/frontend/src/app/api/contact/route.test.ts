@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/email", () => ({
   sendConfirmationEmail: vi.fn().mockResolvedValue(undefined),
@@ -11,7 +11,20 @@ const { POST } = await import("./route");
 describe("/api/contact", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.com");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
     delete process.env.NEXT_PUBLIC_API_URL;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify({ result: [1, 3600] }), { status: 200 })),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("accepts a valid contact submission", async () => {
