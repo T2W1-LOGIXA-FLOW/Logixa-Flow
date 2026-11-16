@@ -2,55 +2,70 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sendConfirmationEmail, sendAdminNotification } from "@/lib/email";
 import { sanitizeHtml } from "@/lib/sanitize-html";
+import { checkRateLimit, getTrustedClientIp } from "@/lib/server/rate-limit";
+import { createHash } from "node:crypto";
 
 // Validation schema
 const contactSchema = z.object({
   name: z.string().min(2).max(50),
-  email: z.string().email(),
-  phone: z.string().optional(),
+  email: z.string().email().max(254),
+  phone: z.string().max(40).optional(),
   subject: z.string().min(3).max(100),
   message: z.string().min(10).max(5000),
 });
 
-// Rate limiting map (IP -> request count)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const MAX_BODY_BYTES = 12_000;
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const limit = rateLimitMap.get(ip);
-
-  if (!limit || now > limit.resetTime) {
-    // Reset or initialize
-    rateLimitMap.set(ip, { count: 1, resetTime: now + 3600000 }); // 1 hour
-    return true;
-  }
-
-  if (limit.count >= 5) {
-    return false; // Rate limited
-  }
-
-  limit.count++;
-  return true;
+function digestEmail(email: string): string {
+  return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    // Get client IP
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+  const ip = getTrustedClientIp(request.headers);
 
-    // Check rate limit
-    if (!checkRateLimit(ip)) {
+  // Reject oversized bodies before JSON parsing; Content-Length alone is untrusted.
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body is too large." }, { status: 413 });
+  }
+
+  const ipLimit = await checkRateLimit(`contact:ip:${ip}`, 5, 3600);
+  if (!ipLimit.configured) {
+    return NextResponse.json(
+      { error: "Contact service is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 },
+    );
+  }
+
+  try {
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Request body is too large." }, { status: 413 });
+    }
+    const body: unknown = JSON.parse(rawBody);
+    const data = contactSchema.parse(body);
+
+    // Also constrain abuse by normalized email, without storing the address in Redis keys.
+    const emailLimit = await checkRateLimit(`contact:email:${digestEmail(data.email)}`, 3, 3600);
+    if (!emailLimit.configured) {
       return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        { status: 429 }
+        { error: "Contact service is temporarily unavailable." },
+        { status: 503 },
+      );
+    }
+    if (!emailLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests for this email address. Please try again later." },
+        { status: 429 },
       );
     }
 
-    // Parse and validate request body
-    const body = await request.json();
-    const data = contactSchema.parse(body);
-
-    // Sanitize inputs
     const sanitizedData = {
       name: sanitizeHtml(data.name),
       email: sanitizeHtml(data.email),
@@ -75,16 +90,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Send confirmation email
     await sendConfirmationEmail(data.email, data.name, submissionId);
-
-    // Send admin notification
     await sendAdminNotification(
       data.name,
       data.email,
       data.subject,
       sanitizedData.message,
-      data.phone
+      data.phone,
     );
 
     return NextResponse.json(
@@ -93,21 +105,22 @@ export async function POST(request: NextRequest) {
         message: "Thank you! Your message has been received.",
         submissionId,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
-    console.error("Contact form error:", error);
-
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid form data", details: error.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
-
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
+    }
+    console.error("Contact form error:", error);
     return NextResponse.json(
       { error: "Failed to send message. Please try again later." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

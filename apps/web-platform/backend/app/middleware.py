@@ -8,7 +8,7 @@ import uuid
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 
-from .cache import rate_limiter
+from .cache import RateLimitUnavailable, rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,12 @@ async def rate_limit_middleware(request: Request, call_next):
         return await call_next(request)
     client_host = request.client.host if request.client else "unknown"
     key = f"{client_host}:{request.url.path}"
-    if not rate_limiter.allow(key):
+    try:
+        allowed = rate_limiter.allow(key)
+    except RateLimitUnavailable:
+        logger.error("Shared rate-limit store unavailable; rejecting request")
+        return JSONResponse({"detail": "Rate limiting temporarily unavailable"}, status_code=503)
+    if not allowed:
         return JSONResponse({"detail": "Rate limit exceeded"}, status_code=429)
     return await call_next(request)
 
