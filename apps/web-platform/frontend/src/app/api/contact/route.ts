@@ -14,6 +14,8 @@ const contactSchema = z.object({
   message: z.string().min(10).max(5000),
 });
 
+const MAX_BODY_BYTES = 12_000;
+
 function digestEmail(email: string): string {
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
 }
@@ -21,9 +23,9 @@ function digestEmail(email: string): string {
 export async function POST(request: NextRequest) {
   const ip = getTrustedClientIp(request.headers);
 
-  // Reject oversized bodies before parsing JSON. The schema is a second layer.
+  // Reject oversized bodies before JSON parsing; Content-Length alone is untrusted.
   const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > 12_000) {
+  if (contentLength > MAX_BODY_BYTES) {
     return NextResponse.json({ error: "Request body is too large." }, { status: 413 });
   }
 
@@ -42,7 +44,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Request body is too large." }, { status: 413 });
+    }
+    const body: unknown = JSON.parse(rawBody);
     const data = contactSchema.parse(body);
 
     // Also constrain abuse by normalized email, without storing the address in Redis keys.
@@ -107,6 +113,9 @@ export async function POST(request: NextRequest) {
         { error: "Invalid form data", details: error.issues },
         { status: 400 },
       );
+    }
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
     }
     console.error("Contact form error:", error);
     return NextResponse.json(
