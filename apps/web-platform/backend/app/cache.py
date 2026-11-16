@@ -8,6 +8,10 @@ from threading import Lock
 from typing import Any
 
 
+class RateLimitUnavailable(RuntimeError):
+    """Raised when a shared production rate-limit store is unavailable."""
+
+
 class CacheClient:
     def __init__(self) -> None:
         self._memory: dict[str, tuple[float, str]] = {}
@@ -109,8 +113,14 @@ class RateLimiter:
             if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
             return count
             """
-            count = self._redis.eval(script, 1, redis_key, effective_window)
+            try:
+                count = self._redis.eval(script, 1, redis_key, effective_window)
+            except Exception as exc:
+                raise RateLimitUnavailable("Shared rate-limit store is unavailable") from exc
             return int(count) <= effective_limit
+
+        if os.getenv("ENVIRONMENT", "development").lower() in {"production", "prod"}:
+            raise RateLimitUnavailable("Shared rate-limit store is required in production")
 
         now = time.time()
         memory_key = f"{key}:{effective_limit}:{effective_window}"
