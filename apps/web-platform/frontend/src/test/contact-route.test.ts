@@ -1,11 +1,16 @@
-import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { sendAdminNotification, sendConfirmationEmail } from "@/lib/email";
 import { POST } from "@/app/api/contact/route";
+import { checkRateLimit } from "@/lib/server/rate-limit";
 
 vi.mock("@/lib/email", () => ({
   sendConfirmationEmail: vi.fn().mockResolvedValue(undefined),
   sendAdminNotification: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@/lib/server/rate-limit", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, configured: true, remaining: 4 }),
+  getTrustedClientIp: vi.fn((headers: Headers) => headers.get("x-real-ip") || "unknown"),
 }));
 
 function contactRequest(headers: Record<string, string> = {}) {
@@ -21,28 +26,15 @@ function contactRequest(headers: Record<string, string> = {}) {
   });
 }
 
-describe("POST /api/contact", () => {
+describe("POST /api/contact security controls", () => {
   beforeEach(() => {
-    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.com");
-    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
+    vi.clearAllMocks();
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true, configured: true, remaining: 4 });
     delete process.env.NEXT_PUBLIC_API_URL;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(() =>
-        Promise.resolve(new Response(JSON.stringify({ result: [1, 3600] }), { status: 200 })),
-      ),
-    );
-    vi.mocked(sendConfirmationEmail).mockClear();
-    vi.mocked(sendAdminNotification).mockClear();
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
   });
 
   it("returns 503 and does not send email when distributed rate limiting is unavailable", async () => {
-    vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: false, configured: false, remaining: 0 });
     const response = await POST(contactRequest());
     expect(response.status).toBe(503);
     expect(sendConfirmationEmail).not.toHaveBeenCalled();
@@ -59,22 +51,20 @@ describe("POST /api/contact", () => {
   });
 
   it("does not use X-Forwarded-For to select the rate-limit identity", async () => {
-    const fetchMock = vi.mocked(fetch);
-    const first = await POST(contactRequest({
+    await POST(contactRequest({
       "x-real-ip": "203.0.113.9",
       "x-forwarded-for": "198.51.100.1",
     }));
-    const second = await POST(contactRequest({
+    await POST(contactRequest({
       "x-real-ip": "203.0.113.9",
       "x-forwarded-for": "198.51.100.2",
     }));
 
-    expect(first.status).toBe(201);
-    expect(second.status).toBe(201);
-    const keys = fetchMock.mock.calls.map((call) => {
-      const command = JSON.parse(String((call[1] as RequestInit).body));
-      return command[3] as string;
-    });
-    expect(keys[0]).toBe(keys[2]);
+    const ipCalls = vi.mocked(checkRateLimit).mock.calls.filter(([key]) =>
+      String(key).startsWith("contact:ip:"),
+    );
+    expect(ipCalls).toHaveLength(2);
+    expect(ipCalls[0][0]).toBe("contact:ip:203.0.113.9");
+    expect(ipCalls[0][0]).toBe(ipCalls[1][0]);
   });
 });

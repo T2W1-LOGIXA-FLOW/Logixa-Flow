@@ -1,30 +1,23 @@
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/email", () => ({
   sendConfirmationEmail: vi.fn().mockResolvedValue(undefined),
   sendAdminNotification: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/lib/server/rate-limit", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, configured: true, remaining: 4 }),
+  getTrustedClientIp: vi.fn((headers: Headers) => headers.get("x-real-ip") || "unknown"),
+}));
 
 const { POST } = await import("./route");
+const { checkRateLimit } = await import("@/lib/server/rate-limit");
 
 describe("/api/contact", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.com");
-    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true, configured: true, remaining: 4 });
     delete process.env.NEXT_PUBLIC_API_URL;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(() =>
-        Promise.resolve(new Response(JSON.stringify({ result: [1, 3600] }), { status: 200 })),
-      ),
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
   });
 
   it("accepts a valid contact submission", async () => {
@@ -46,6 +39,7 @@ describe("/api/contact", () => {
     expect(response.status).toBe(201);
     expect(data.success).toBe(true);
     expect(data.message).toContain("received");
+    expect(checkRateLimit).toHaveBeenCalledTimes(2);
   });
 
   it("rejects invalid contact data", async () => {

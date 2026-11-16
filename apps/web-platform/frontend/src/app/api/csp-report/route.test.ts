@@ -1,23 +1,16 @@
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/server/rate-limit", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, configured: true, remaining: 19 }),
+  getTrustedClientIp: vi.fn(() => "203.0.113.10"),
+}));
 
 const { POST } = await import("./route");
 
 describe("/api/csp-report", () => {
   beforeEach(() => {
-    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.example.com");
-    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(() =>
-        Promise.resolve(new Response(JSON.stringify({ result: [1, 60] }), { status: 200 })),
-      ),
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
+    vi.clearAllMocks();
   });
 
   it("accepts a valid CSP violation report", async () => {
