@@ -19,7 +19,7 @@ from .qstash import qstash_configured
 from .database import SessionLocal
 from .db_bootstrap import bootstrap_database, database_profile
 from .logging_config import setup_logging
-from .middleware import rate_limit_middleware, request_observability_middleware, security_headers_middleware, stealth_mode_middleware
+from .middleware import rate_limit_middleware, request_observability_middleware, security_headers_middleware, stealth_mode_middleware, gateway_secret_middleware
 from .routers import admin, agent, analytics, auth, brain, chat, contacts, controllers, costs, usage, finance, diagnostics, email_templates, estimator, integration, workflow, metrics, moderation, posts, rag, settings, submissions, subscribers, system, uploads, knowledge, telegram
 from .scheduler import scheduler_status, start_scheduler, stop_scheduler
 from .services.telegram import configure_telegram_webhook
@@ -316,6 +316,7 @@ if os.getenv("USE_SLOWAPI", "false").lower() == "true":
         logger.warning("SlowAPI unavailable, using custom rate limiter only: %s", exc)
 
 app.middleware("http")(security_headers_middleware)
+app.middleware("http")(gateway_secret_middleware)
 app.middleware("http")(rate_limit_middleware)
 app.middleware("http")(stealth_mode_middleware)
 

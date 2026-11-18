@@ -86,6 +86,38 @@ async def rate_limit_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+async def gateway_secret_middleware(request: Request, call_next):
+    """Reject requests that bypass the Cloudflare edge gateway (missing/wrong X-Logixa-Gateway-Secret).
+
+    This is a defence-in-depth layer: the Cloudflare Worker already enforces the secret
+    before forwarding, so direct-to-Render requests without the header are rejected here.
+    Set GATEWAY_SECRET env var on Render to the same value used in `wrangler secret put GATEWAY_SECRET`.
+    Set ENFORCE_GATEWAY_SECRET=false to disable enforcement (dev / migration period only).
+    """
+    if os.getenv("ENFORCE_GATEWAY_SECRET", "true").lower() != "true":
+        return await call_next(request)
+
+    secret = os.getenv("GATEWAY_SECRET", "").strip()
+    if not secret:
+        # No secret configured — skip enforcement (allow boot without secrets in dev)
+        logger.warning("GATEWAY_SECRET not set; gateway enforcement is disabled")
+        return await call_next(request)
+
+    # Health check is exempt so Render's health pinger doesn't need the header
+    if request.url.path in {"/health", "/", "/docs", "/openapi.json", "/redoc"}:
+        return await call_next(request)
+
+    incoming = request.headers.get("X-Logixa-Gateway-Secret", "")
+    if not incoming or incoming != secret:
+        logger.warning(
+            "Rejected request missing/invalid X-Logixa-Gateway-Secret",
+            extra={"path": request.url.path, "method": request.method},
+        )
+        return JSONResponse({"detail": "Forbidden"}, status_code=403)
+
+    return await call_next(request)
+
+
 async def stealth_mode_middleware(request: Request, call_next):
     if os.getenv("PUBLIC_ACCESS", "true").lower() == "true":
         return await call_next(request)
