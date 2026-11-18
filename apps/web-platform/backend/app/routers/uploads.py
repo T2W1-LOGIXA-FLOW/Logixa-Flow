@@ -165,7 +165,7 @@ def upload_file(request: Request, file: UploadFile = File(...), _admin=Depends(r
 
 
 @router.get("/uploads/files/{file_id}", name="download_stored_file")
-def download_stored_file(file_id: str):
+def download_stored_file(file_id: str, _admin=Depends(require_admin)):
     """Serve an opaque-link B2 object without making the B2 bucket public."""
     db = SessionLocal()
     try:

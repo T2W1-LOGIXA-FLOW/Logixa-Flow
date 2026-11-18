@@ -9,7 +9,6 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from . import models
@@ -383,10 +382,9 @@ app.middleware("http")(request_observability_middleware)
 
 uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)
-# NOTE (M2): StaticFiles serves /uploads without authentication. For private files,
-# replace this mount with an authenticated route in routers/uploads.py that
-# checks the session token before streaming the file.
-app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+# NOTE: /uploads static files mount removed. Files are served exclusively through
+# the authenticated /api/uploads/files/{file_id} route which requires admin auth.
+# This prevents unauthenticated access to uploaded documents.
 
 app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(admin.router, prefix="/api", tags=["admin"])

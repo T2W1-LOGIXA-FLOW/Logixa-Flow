@@ -52,7 +52,7 @@ async def request_observability_middleware(request: Request, call_next):
     return response
 
 
-PUBLIC_PATH_PREFIXES = ("/health", "/api/posts", "/api/metrics", "/api/contacts", "/api/subscribers", "/api/uploads/files/", "/uploads")
+PUBLIC_PATH_PREFIXES = ("/health", "/api/posts", "/api/metrics", "/api/contacts", "/api/subscribers")
 
 
 async def security_headers_middleware(request: Request, call_next):
