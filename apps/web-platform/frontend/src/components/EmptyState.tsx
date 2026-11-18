@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { ReactNode } from "react";
+import { Inbox } from "lucide-react";
 import Button from "./shadcn/Button";
 
 interface EmptyStateProps {
-  icon?: string;
+  icon?: ReactNode;
   title: string;
   description: string;
   actionLabel?: string;
@@ -16,7 +17,7 @@ interface EmptyStateProps {
 }
 
 export default function EmptyState({
-  icon = "📭",
+  icon = <Inbox className="h-8 w-8 text-slate-400" />,
   title,
   description,
   actionLabel,
@@ -27,7 +28,7 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={`empty-state ${variant}`}>
-      <div className="empty-state-icon">{icon}</div>
+      <div className="empty-state-icon flex items-center justify-center mb-2">{icon}</div>
       <h3 className="empty-state-title">{title}</h3>
       <p className="empty-state-description">{description}</p>
 

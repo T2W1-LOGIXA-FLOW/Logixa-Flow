@@ -15,6 +15,19 @@ export function useAdminAuth() {
     let cancelled = false;
 
     async function checkSession() {
+      const isLocalPreview =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          localStorage.getItem("logixa_preview_mode") === "true");
+
+      if (isLocalPreview) {
+        setToken("mock_admin_token_preview");
+        setIsAuthenticated(true);
+        setIsCheckingAuth(false);
+        return;
+      }
+
       const saved = await getAdminSessionToken();
       if (!saved) {
         if (cancelled) return;

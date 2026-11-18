@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { toast } from "sonner";
+import { Package } from "lucide-react";
 import AdminBreadcrumb from "@/components/admin/AdminBreadcrumb";
 import { adminFetch } from "@/components/api";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -100,8 +101,9 @@ export default function AdminImportPage() {
           />
           {files.length > 0 && (
             <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-300">
-              <p className="font-semibold text-slate-200">
-                📦 {files.length} file{files.length > 1 ? "s" : ""} selected for bulk intake:
+              <p className="flex items-center gap-1.5 font-semibold text-slate-200">
+                <Package className="h-4 w-4 text-blue-400" />
+                <span>{files.length} file{files.length > 1 ? "s" : ""} selected for bulk intake:</span>
               </p>
               <ul className="mt-1.5 max-h-32 space-y-1 overflow-y-auto font-mono text-[11px] text-slate-400">
                 {files.map((f, idx) => (

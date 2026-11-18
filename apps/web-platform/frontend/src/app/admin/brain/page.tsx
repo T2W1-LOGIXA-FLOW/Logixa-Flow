@@ -16,6 +16,7 @@ import {
   Search,
   RefreshCw,
   ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 
 import { AiMemory, Post, adminFetch, IntelligenceSource } from "@/components/api";
@@ -375,7 +376,7 @@ export default function BrainReviewPage() {
 
           {itemsError ? (
             <div className="p-6 text-center">
-              <EmptyState icon="⚠️" title="Failed to load brain queue" description={itemsError} />
+              <EmptyState icon={<AlertTriangle className="h-8 w-8 text-amber-400" />} title="Failed to load brain queue" description={itemsError} />
             </div>
           ) : itemsLoading ? (
             <div className="space-y-2 py-4">
@@ -428,7 +429,7 @@ export default function BrainReviewPage() {
           ) : (
             <div className="p-8 text-center">
               <EmptyState
-                icon="🧠"
+                icon={<Brain className="h-8 w-8 text-blue-400" />}
                 title={`No ${filter} items`}
                 description="Run the AI agent to generate drafts for review, or select a different filter."
                 actionLabel="Create Draft"

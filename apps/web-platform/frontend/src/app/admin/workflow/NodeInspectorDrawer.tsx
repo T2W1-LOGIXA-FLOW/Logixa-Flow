@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Node } from "@xyflow/react";
+import { X } from "lucide-react";
 
 export type ServiceNodeData = {
   label: string;
@@ -97,9 +98,9 @@ export default function NodeInspectorDrawer({
         </div>
         <button
           onClick={onClose}
-          aria-label="Close node inspector" style={{ background: "transparent", border: 0, color: "#94a3b8", cursor: "pointer", fontSize: "16px" }}
+          aria-label="Close node inspector" style={{ background: "transparent", border: 0, color: "#94a3b8", cursor: "pointer", fontSize: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          ✕
+          <X style={{ width: "16px", height: "16px" }} />
         </button>
       </div>
 
