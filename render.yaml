@@ -22,6 +22,10 @@ services:
         generateValue: true
       - key: API_SECRET_TOKEN
         generateValue: true
+      - key: GATEWAY_SECRET
+        sync: false
+      - key: ENFORCE_GATEWAY_SECRET
+        value: "true"
       - key: AGENT_SERVICE_TOKEN
         sync: false
       - key: REQUIRE_AI_KEY

@@ -40,7 +40,7 @@ def admin_diagnostics(
             "scheduler": scheduler,
             "cache_backend": cache_client.backend,
             "rate_limit_backend": rate_limiter.backend,
-            "use_slowapi": os.getenv("USE_SLOWAPI", "true").lower() == "true",
+            "use_slowapi": os.getenv("USE_SLOWAPI", "false").lower() == "true",
         },
         "database": {
             "status": "ok" if db_ok else "error",

@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import uuid
+from hmac import compare_digest
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
@@ -108,7 +109,7 @@ async def gateway_secret_middleware(request: Request, call_next):
         return await call_next(request)
 
     incoming = request.headers.get("X-Logixa-Gateway-Secret", "")
-    if not incoming or incoming != secret:
+    if not incoming or not compare_digest(incoming, secret):
         logger.warning(
             "Rejected request missing/invalid X-Logixa-Gateway-Secret",
             extra={"path": request.url.path, "method": request.method},
