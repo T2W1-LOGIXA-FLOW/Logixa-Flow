@@ -93,7 +93,7 @@ export default async function BlogDetail({ params }: { params: Promise<{ slug: s
       <Script
         id="article-schema"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema).replace(/</g, '\\u003c') }}
       />
       <p className="eyebrow">{post.type}</p>
       <h1>{post.title}</h1>

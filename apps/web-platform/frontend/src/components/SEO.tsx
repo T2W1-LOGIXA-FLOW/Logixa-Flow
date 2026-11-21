@@ -229,7 +229,7 @@ export function SEOHead({ metadata }: { metadata: SEOMetadata }) {
                 dateModified: metadata.updatedAt,
                 url: metadata.url,
               })
-            ),
+            ).replace(/</g, '\\u003c'),
           }}
         />
       )}

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import DOMPurify from 'dompurify';
 
 interface BlogPDFExportProps {
   title: string;
@@ -18,13 +19,19 @@ export default function BlogPDFExport({ title, htmlContent, publishedAt }: BlogP
         return;
       }
 
+      const safeTitle = title
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const safeHtmlContent = DOMPurify.sanitize(htmlContent || '');
+
       const htmlDoc = `
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${title}</title>
+            <title>${safeTitle}</title>
             <style>
               * {
                 margin: 0;
@@ -93,7 +100,7 @@ export default function BlogPDFExport({ title, htmlContent, publishedAt }: BlogP
           </head>
           <body>
             <div class="header">
-              <h1>${title}</h1>
+              <h1>${safeTitle}</h1>
               <div class="meta">
                 <p><strong>Published:</strong> ${publishedAt ? new Date(publishedAt).toLocaleDateString() : 'N/A'}</p>
                 <p><strong>Source:</strong> Logixa Flow - Supply Chain Intelligence Platform</p>
@@ -101,7 +108,7 @@ export default function BlogPDFExport({ title, htmlContent, publishedAt }: BlogP
               </div>
             </div>
             <div class="content">
-              ${htmlContent}
+              ${safeHtmlContent}
             </div>
             <div class="footer">
               <p>This document was exported from Logixa Flow</p>
@@ -131,7 +138,7 @@ export default function BlogPDFExport({ title, htmlContent, publishedAt }: BlogP
       className="px-4 py-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-lg hover:bg-orange-500/20 transition text-sm font-medium"
       title="Export article as PDF"
     >
-      📥 Export as PDF
+      Export as PDF
     </motion.button>
   );
 }
