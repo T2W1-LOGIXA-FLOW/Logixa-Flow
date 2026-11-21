@@ -12,6 +12,8 @@ from app.main import app
 
 def test_integration_catalog_reports_readiness_without_secret_values(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-secret-value")
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -47,6 +49,8 @@ def test_integration_catalog_reports_readiness_without_secret_values(monkeypatch
 
 def test_integration_catalog_toggle_is_persisted_and_cannot_enable_unconfigured_provider(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-secret-value")
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
